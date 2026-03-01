@@ -88,6 +88,7 @@
   <div id="success" class="hidden">
     <p class="status success" style="font-size:1.5rem;">&#10003;</p>
     <p class="status success">Logged in successfully!</p>
+    <p class="status" style="font-size:0.85rem;">You can close this window now.</p>
     <a id="dashboard-link" class="btn" href="#">Open Dashboard</a>
   </div>
 
@@ -162,6 +163,8 @@ if (!requestToken) {
       if (resp.ok) {
         document.getElementById('dashboard-link').href = BACKEND_URL + DASHBOARD_PATH;
         show('success');
+        // Auto-close in-app browsers (Telegram, etc.) after brief delay
+        setTimeout(function() { window.close(); }, 1500);
       } else {
         return resp.json().then(function(data) {
           // Token exchange failed (expired, invalid, etc.)
