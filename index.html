@@ -82,7 +82,8 @@
 
   <div id="connecting">
     <div class="spinner"></div>
-    <p class="status">Connecting to server...</p>
+    <p class="status">Exchanging token with server...</p>
+    <p class="status" style="font-size:0.75rem; margin-top:0.5rem;">If you're on Tailscale, this will complete automatically.</p>
   </div>
 
   <div id="success" class="hidden">
@@ -141,9 +142,6 @@ function showFallback() {
   document.getElementById('tg-link').href = tgDeepLink;
   document.getElementById('redirect-url').textContent = redirectUrl;
   show('fallback');
-
-  // Try auto-redirect to Telegram after a brief pause
-  setTimeout(function() { window.location.href = tgDeepLink; }, 500);
 }
 
 if (!requestToken) {
@@ -152,7 +150,7 @@ if (!requestToken) {
 } else {
   // Try the backend with a 3-second timeout
   var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 3000);
+  var timeoutId = setTimeout(function() { controller.abort(); }, 6000);
 
   fetch(BACKEND_URL + '/api/auth/callback-public?request_token=' + encodeURIComponent(requestToken), {
     method: 'GET',
@@ -163,8 +161,8 @@ if (!requestToken) {
       if (resp.ok) {
         document.getElementById('dashboard-link').href = BACKEND_URL + DASHBOARD_PATH;
         show('success');
-        // Auto-close in-app browsers (Telegram, etc.) after brief delay
-        setTimeout(function() { window.close(); }, 1500);
+        // Backend reachable = on Tailscale. Redirect to dashboard directly.
+        setTimeout(function() { window.location.href = BACKEND_URL + DASHBOARD_PATH; }, 1000);
       } else {
         return resp.json().then(function(data) {
           // Token exchange failed (expired, invalid, etc.)
