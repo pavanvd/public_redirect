@@ -148,9 +148,11 @@ if (!requestToken) {
   document.getElementById('error-msg').textContent = 'No request_token found in URL.';
   show('error-box');
 } else {
-  // Try the backend with a 3-second timeout
+  // Try the backend (10s timeout — mobile/Tailscale can be slow)
   var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 6000);
+  var timeoutId = setTimeout(function() { controller.abort(); }, 10000);
+
+  document.querySelector('#connecting .status').textContent = 'Exchanging token with server...';
 
   fetch(BACKEND_URL + '/api/auth/callback-public?request_token=' + encodeURIComponent(requestToken), {
     method: 'GET',
@@ -174,10 +176,17 @@ if (!requestToken) {
         });
       }
     })
-    .catch(function() {
+    .catch(function(err) {
       clearTimeout(timeoutId);
-      // Network error or timeout — server not reachable, fall back to Telegram
-      showFallback();
+      // Show the actual error for diagnostics before falling back
+      var reason = err.name === 'AbortError' ? 'Timeout (server not reachable)'
+        : err.name + ': ' + err.message;
+      document.getElementById('error-msg').textContent = reason;
+      document.getElementById('retry-link').href = BACKEND_URL + DASHBOARD_PATH;
+      document.getElementById('retry-link').textContent = 'Try opening dashboard directly';
+      show('error-box');
+      // Also show fallback after a moment
+      setTimeout(function() { showFallback(); }, 3000);
     });
 }
 </script>
