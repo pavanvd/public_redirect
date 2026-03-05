@@ -148,46 +148,29 @@ if (!requestToken) {
   document.getElementById('error-msg').textContent = 'No request_token found in URL.';
   show('error-box');
 } else {
-  // Try the backend (10s timeout — mobile/Tailscale can be slow)
-  var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 10000);
+  // Strategy: redirect directly to the backend callback URL.
+  // This works even when cross-origin fetch() is blocked (e.g. iPhone Safari
+  // in-app browsers don't route fetch through Tailscale VPN, but page
+  // navigation does work).
+  //
+  // If the redirect succeeds (user is on Tailscale), the backend exchanges
+  // the token and redirects to the dashboard.
+  //
+  // If the redirect doesn't happen within 4 seconds (not on Tailscale),
+  // we show the Telegram fallback. The page is still visible because the
+  // navigation failed/is pending.
 
-  document.querySelector('#connecting .status').textContent = 'Exchanging token with server...';
+  var callbackUrl = BACKEND_URL + '/api/auth/callback-public?request_token='
+    + encodeURIComponent(requestToken)
+    + '&redirect=' + encodeURIComponent(BACKEND_URL + DASHBOARD_PATH);
 
-  fetch(BACKEND_URL + '/api/auth/callback-public?request_token=' + encodeURIComponent(requestToken), {
-    method: 'GET',
-    signal: controller.signal,
-  })
-    .then(function(resp) {
-      clearTimeout(timeoutId);
-      if (resp.ok) {
-        document.getElementById('dashboard-link').href = BACKEND_URL + DASHBOARD_PATH;
-        show('success');
-        // Backend reachable = on Tailscale. Redirect to dashboard directly.
-        setTimeout(function() { window.location.href = BACKEND_URL + DASHBOARD_PATH; }, 1000);
-      } else {
-        return resp.json().then(function(data) {
-          // Token exchange failed (expired, invalid, etc.)
-          document.getElementById('error-msg').textContent =
-            'Login failed: ' + (data.error || 'Unknown error') + '. Tokens expire in ~30s.';
-          document.getElementById('retry-link').href = 'https://t.me/' + BOT_USERNAME;
-          document.getElementById('retry-link').textContent = 'Open Bot to retry /login';
-          show('error-box');
-        });
-      }
-    })
-    .catch(function(err) {
-      clearTimeout(timeoutId);
-      // Show the actual error for diagnostics before falling back
-      var reason = err.name === 'AbortError' ? 'Timeout (server not reachable)'
-        : err.name + ': ' + err.message;
-      document.getElementById('error-msg').textContent = reason;
-      document.getElementById('retry-link').href = BACKEND_URL + DASHBOARD_PATH;
-      document.getElementById('retry-link').textContent = 'Try opening dashboard directly';
-      show('error-box');
-      // Also show fallback after a moment
-      setTimeout(function() { showFallback(); }, 3000);
-    });
+  // Start navigation
+  window.location.href = callbackUrl;
+
+  // If we're still here after 4 seconds, the redirect didn't work
+  setTimeout(function() {
+    showFallback();
+  }, 4000);
 }
 </script>
 
